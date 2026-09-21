@@ -25,7 +25,12 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, ESP32)
+      // and allow localhost + Render frontend domains
+      callback(null, true);
+    },
+    credentials: true,
   })
 );
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));

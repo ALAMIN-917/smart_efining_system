@@ -1,4 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? "https://smart-efining-system-1.onrender.com"
+    : "http://localhost:5000");
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {

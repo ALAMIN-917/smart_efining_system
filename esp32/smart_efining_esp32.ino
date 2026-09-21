@@ -25,6 +25,7 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <TinyGPS++.h>
 
 // ─── USER CONFIGURATION ─────────────────────────────────────────────────────
@@ -33,8 +34,11 @@
 const char* WIFI_SSID     = "Software Lab2";
 const char* WIFI_PASSWORD = "Cselab2006";
 
-// Backend API endpoint — configured with your machine's local IP on the network.
-const char* API_ENDPOINT  = "http://192.168.100.163:5000/api/telemetry";
+// Backend API endpoint:
+// Cloud production URL (Render):
+const char* API_ENDPOINT  = "https://smart-efining-system-1.onrender.com/api/telemetry";
+// Local IP alternative (when running on localhost):
+// const char* API_ENDPOINT  = "http://192.168.100.163:5000/api/telemetry";
 
 // Device and vehicle identification — must match the database records.
 const char* DEVICE_ID     = "ESP32-DVC-45821";
@@ -199,16 +203,25 @@ void sendTelemetry() {
   Serial.printf("[HTTP] POST %s\n", API_ENDPOINT);
   Serial.printf("[HTTP] Payload: %s\n", payload.c_str());
 
-  // ── Send HTTP POST ────────────────────────────────────────────────────
+  // ── Send HTTP/HTTPS POST ──────────────────────────────────────────────
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[HTTP] Wi-Fi not connected — skipping send.");
     return;
   }
 
   HTTPClient http;
-  http.begin(API_ENDPOINT);
+  WiFiClientSecure secureClient;
+  WiFiClient standardClient;
+
+  if (String(API_ENDPOINT).startsWith("https://")) {
+    secureClient.setInsecure();  // Allows connecting to Render HTTPS without CA bundle
+    http.begin(secureClient, API_ENDPOINT);
+  } else {
+    http.begin(standardClient, API_ENDPOINT);
+  }
+
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(10000);  // 10 second timeout
+  http.setTimeout(15000);  // 15 second timeout for cloud latency
 
   int httpCode = http.POST(payload);
 
