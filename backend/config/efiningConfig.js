@@ -46,6 +46,43 @@ module.exports = {
     COOLDOWN_S: 120,
   },
 
+  /* ── BRTA Motor Vehicle Speed Limit Guideline 2024 ─────────────────────── */
+  brtaGuideline2024: {
+    reference: "BRTA Motor Vehicle Speed Limit Guideline 2024 (মোটরযান গতিসীমা নির্দেশিকা ২০২৪)",
+    categories: {
+      EXPRESSWAY: {
+        code: "EXPRESSWAY",
+        name: "Expressway (e.g. N8 Bangabandhu Expressway)",
+        limits: { Car: 80, Microbus: 80, SUV: 80, Bus: 80, Truck: 60, Motorcycle: 60, CNG: 0, All: 80 },
+      },
+      NATIONAL_HIGHWAY: {
+        code: "NATIONAL_HIGHWAY",
+        name: "National Highway (e.g. N3 Dhaka-Mymensingh Highway)",
+        limits: { Car: 80, Microbus: 80, SUV: 80, Bus: 70, Truck: 60, Motorcycle: 50, CNG: 30, All: 80 },
+      },
+      REGIONAL_HIGHWAY: {
+        code: "REGIONAL_HIGHWAY",
+        name: "Regional Highway (আঞ্চলিক মহাসড়ক)",
+        limits: { Car: 70, Microbus: 70, SUV: 70, Bus: 60, Truck: 50, Motorcycle: 50, CNG: 30, All: 70 },
+      },
+      DISTRICT_ROAD: {
+        code: "DISTRICT_ROAD",
+        name: "District / Zilla Road (জেলা সড়ক)",
+        limits: { Car: 60, Microbus: 60, SUV: 60, Bus: 50, Truck: 40, Motorcycle: 40, CNG: 30, All: 60 },
+      },
+      URBAN_ROAD: {
+        code: "URBAN_ROAD",
+        name: "City Corporation / Municipality / Urban (পৌরসভা / সিটি কর্পোরেশন)",
+        limits: { Car: 40, Microbus: 40, SUV: 40, Bus: 40, Truck: 30, Motorcycle: 30, CNG: 30, All: 40 },
+      },
+      VULNERABLE_ZONE: {
+        code: "VULNERABLE_ZONE",
+        name: "School / College / University / Hospital / Market Zone",
+        limits: { Car: 30, Microbus: 30, SUV: 30, Bus: 30, Truck: 30, Motorcycle: 30, CNG: 20, All: 30 },
+      },
+    },
+  },
+
   /* ── Fine calculation (DEMO policy — NOT legal advice) ─────────────────── */
   finePolicy: {
     /** Excess-speed tiers.  The first matching tier is used. */

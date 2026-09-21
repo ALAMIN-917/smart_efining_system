@@ -6,6 +6,7 @@ const {
   getVehicleLocation,
   getVehicleStatus,
   getVehicleTrail,
+  clearVehicleTrail,
 } = require("../controllers/telemetryController");
 
 const router = express.Router();
@@ -16,9 +17,10 @@ router.post("/telemetry", asyncHandler(ingestTelemetry));
 // Simulation endpoint (no auth required for demo convenience).
 router.post("/telemetry/simulate", asyncHandler(simulateTelemetry));
 
-// Vehicle location & status queries.
+// Vehicle location, status, and trail queries.
 router.get("/vehicles/:vehicleId/location", asyncHandler(getVehicleLocation));
 router.get("/vehicles/:vehicleId/status", asyncHandler(getVehicleStatus));
 router.get("/vehicles/:vehicleId/trail", asyncHandler(getVehicleTrail));
+router.delete("/vehicles/:vehicleId/trail", asyncHandler(clearVehicleTrail));
 
 module.exports = router;

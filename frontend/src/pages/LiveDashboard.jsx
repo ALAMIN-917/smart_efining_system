@@ -5,6 +5,7 @@ import {
   getSpeedZones,
   getRecentFines,
   createSSEConnection,
+  clearVehicleTrail,
 } from "../services/api";
 import LiveMap from "../components/LiveMap";
 import SpeedGauge from "../components/SpeedGauge";
@@ -111,6 +112,8 @@ export default function LiveDashboard() {
             allowedSpeed: d.latestTelemetry.allowedSpeed,
             status: d.currentStatus,
             zoneName: d.latestTelemetry.zoneName,
+            roadCode: d.latestTelemetry.roadCode,
+            roadType: d.latestTelemetry.roadType,
             timestamp: d.latestTelemetry.timestamp,
           });
         }
@@ -120,6 +123,17 @@ export default function LiveDashboard() {
     getVehicleTrail(vehicleId)
       .then((res) => setTrail(res.data))
       .catch(() => {});
+  }, [vehicleId]);
+
+  // Clear stale trail points
+  const handleClearTrail = useCallback(async () => {
+    if (!vehicleId) return;
+    try {
+      await clearVehicleTrail(vehicleId);
+      setTrail([]);
+    } catch (err) {
+      console.error("Failed to clear trail:", err);
+    }
   }, [vehicleId]);
 
   // Simulation response handler — updates telemetry from simulation
@@ -142,30 +156,30 @@ export default function LiveDashboard() {
             </span>
             Live Vehicle Monitor
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Real-time GPS telemetry & overspeed detection
+          <p className="text-sm text-gray-400 mt-1">
+            Real-time GPS tracking, BRTA 2024 speed limit detection, and automated e-fining
           </p>
         </div>
+
+        {/* Status indicator */}
         <div className="flex items-center gap-3">
-          {/* SSE status indicator */}
-          <span className="flex items-center gap-1.5 text-xs">
-            <span className={`relative flex h-2 w-2`}>
-              {sseConnected && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${sseConnected ? "bg-emerald-500" : "bg-rose-500"}`} />
-            </span>
-            <span className={sseConnected ? "text-emerald-400" : "text-rose-400"}>
-              {sseConnected ? "Live" : "Connecting…"}
-            </span>
+          <span className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+            <span className={`h-2 w-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+            {sseConnected ? "SSE LIVE" : "POLLING"}
           </span>
+
           {/* Vehicle selector */}
-          <input
+          <select
             value={vehicleId}
             onChange={(e) => setVehicleId(e.target.value)}
-            placeholder="Vehicle ID"
-            className="bg-black/30 border border-white/10 rounded-md px-3 py-1.5 text-sm outline-none focus:border-info/50 w-36"
-          />
+            className="bg-base border border-white/15 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-info"
+          >
+            <option value="VH-10294">VH-10294 (Abdur Rahman - Car)</option>
+            <option value="VH-10295">VH-10295 (Fatema Begum - Car)</option>
+            <option value="VH-10297">VH-10297 (Tanvir Ahmed - Bike)</option>
+            <option value="VH-10296">VH-10296 (Karim Sheikh - Bus)</option>
+            <option value="VH-10298">VH-10298 (Jashim Uddin - Truck)</option>
+          </select>
         </div>
       </div>
 
@@ -208,15 +222,9 @@ export default function LiveDashboard() {
             <div className="flex items-center gap-3">
               <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold ${
                 status === "NORMAL" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" :
-                status === "WARNING" ? "bg-orange-500/15 text-orange-400 border border-orange-500/30" :
-                status === "OVERSPEED" ? "bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse" :
-                status === "VIOLATION" ? "bg-red-600/20 text-red-400 border-2 border-red-600/50" :
-                "bg-white/5 text-gray-400 border border-white/10"
+                status === "WARNING" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" :
+                "bg-rose-500/15 text-rose-400 border border-rose-500/30"
               }`}>
-                {status === "NORMAL" && "✅"}
-                {status === "WARNING" && "⚠️"}
-                {status === "OVERSPEED" && "🚨"}
-                {status === "VIOLATION" && "❌"}
                 {status}
               </span>
               {telemetry?.zoneName && (
@@ -225,6 +233,11 @@ export default function LiveDashboard() {
                 </span>
               )}
             </div>
+            {telemetry?.roadCode && (
+              <p className="text-xs text-info/90 font-medium mt-2">
+                🛣️ Road: {telemetry.roadCode} ({telemetry.roadType || "Highway"}) — BRTA 2024
+              </p>
+            )}
             {telemetry?.timestamp && (
               <p className="text-[11px] text-gray-500 mt-3">
                 Last update: {new Date(telemetry.timestamp).toLocaleString()}
@@ -244,7 +257,12 @@ export default function LiveDashboard() {
                 {speedZones.length} speed zone{speedZones.length !== 1 ? "s" : ""} loaded
               </span>
             </div>
-            <LiveMap telemetry={telemetry} speedZones={speedZones} trail={trail} />
+            <LiveMap
+              telemetry={telemetry}
+              speedZones={speedZones}
+              trail={trail}
+              onClearTrail={handleClearTrail}
+            />
           </div>
 
           {/* Simulation Panel */}

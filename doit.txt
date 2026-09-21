@@ -2051,7 +2051,7 @@ Replace your current ESP32 sketch with this version:
 // =====================================================
 
 const char* ssid = "Redmi 10C";
-const char* password = "naeem1234";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // =====================================================
 // SERVER CONFIGURATION

@@ -51,6 +51,9 @@ export function createSSEConnection() {
   return new EventSource(`${API_URL}/api/events`);
 }
 
+export const clearVehicleTrail = (vehicleId) =>
+  request(`/api/vehicles/${vehicleId}/trail`, { method: "DELETE" });
+
 // Admin
 export const adminLogin = (username, password) =>
   request(`/admin/api/auth/login`, { method: "POST", body: JSON.stringify({ username, password }) });

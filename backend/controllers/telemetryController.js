@@ -104,16 +104,16 @@ const ingestTelemetry = async (req, res) => {
 
   // ── 4. Speed zone lookup ──────────────────────────────────────────────
   const vehicleType = vehicle?.vehicleType || "Car";
-  const { speedLimit, zone } = await speedZoneSvc.getApplicableSpeedLimit(
+  const { speedLimit, zone, roadCode, roadType } = await speedZoneSvc.getApplicableSpeedLimit(
     latitude,
     longitude,
     vehicleType
   );
 
   if (zone) {
-    console.log(`[ROAD] Zone: ${zone.name} | Limit: ${speedLimit} km/h`);
+    console.log(`[ROAD] Zone: ${zone.name} (${zone.roadCode || "Highway"}) | Limit: ${speedLimit} km/h`);
   } else {
-    console.log(`[ROAD] No zone matched — using default: ${speedLimit} km/h`);
+    console.log(`[ROAD] Using dynamic corridor limit: ${speedLimit} km/h`);
   }
 
   // ── 5. Violation detection ────────────────────────────────────────────
@@ -171,6 +171,9 @@ const ingestTelemetry = async (req, res) => {
     speed: effectiveSpeed,
     allowedSpeed: speedLimit,
     zoneName: zone?.name || null,
+    roadCode: zone?.roadCode || roadCode || "N3",
+    roadType: zone?.roadType || roadType || "National Highway",
+    brtaGuideline: "BRTA Motor Vehicle Speed Limit Guideline 2024",
     status,
     timestamp: now.toISOString(),
     fineId: generatedFine?.fineId || null,
@@ -191,6 +194,8 @@ const ingestTelemetry = async (req, res) => {
     status,
     speed: effectiveSpeed != null ? Math.round(effectiveSpeed) : null,
     allowedSpeed: speedLimit,
+    road: zone?.name || "N3 Highway",
+    roadCode: zone?.roadCode || "N3",
   };
 
   if (status === "WARNING") {
@@ -317,10 +322,23 @@ const getVehicleTrail = async (req, res) => {
   res.json({ success: true, data: points.reverse() });
 };
 
+/**
+ * DELETE /api/vehicles/:vehicleId/trail
+ *
+ * Clears old telemetry points for a vehicle (e.g. wiping stale test coordinates).
+ */
+const clearVehicleTrail = async (req, res) => {
+  const { vehicleId } = req.params;
+  await Telemetry.deleteMany({ vehicleId });
+  previousReadings.delete(vehicleId);
+  res.json({ success: true, message: `Trail cleared for vehicle ${vehicleId}` });
+};
+
 module.exports = {
   ingestTelemetry,
   simulateTelemetry,
   getVehicleLocation,
   getVehicleStatus,
   getVehicleTrail,
+  clearVehicleTrail,
 };

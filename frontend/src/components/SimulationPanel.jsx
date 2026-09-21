@@ -7,20 +7,20 @@ import { sendSimulatedTelemetry } from "../services/api";
  */
 
 const PRESETS = [
-  { label: "Normal (60 km/h)", speed: 60, lat: 23.4721, lng: 90.2814, desc: "Padma Bridge Expressway" },
-  { label: "Warning (83 km/h)", speed: 83, lat: 23.4721, lng: 90.2814, desc: "Padma Bridge Expressway" },
-  { label: "Overspeed (92 km/h)", speed: 92, lat: 23.4721, lng: 90.2814, desc: "Padma Bridge Expressway" },
-  { label: "Extreme (120 km/h)", speed: 120, lat: 23.7712, lng: 90.4145, desc: "Hatirjheel Expressway" },
-  { label: "City Normal (35 km/h)", speed: 35, lat: 23.7712, lng: 90.4145, desc: "Hatirjheel Expressway" },
+  { label: "N3 Trishal (75 km/h)", speed: 75, lat: 24.5822, lng: 90.3958, desc: "N3 National Highway — 80 km/h Limit" },
+  { label: "N3 Trishal Bazar (48 km/h)", speed: 48, lat: 24.5855, lng: 90.3942, desc: "Trishal Bazar — 40 km/h Urban Limit" },
+  { label: "JKKNIU Zone (42 km/h)", speed: 42, lat: 24.5802, lng: 90.3831, desc: "JKKNIU University Zone — 30 km/h Limit" },
+  { label: "N3 Overspeed (92 km/h)", speed: 92, lat: 24.5822, lng: 90.3958, desc: "Overspeed on N3 — ৳1500 Fine" },
+  { label: "N8 Padma Bridge (80 km/h)", speed: 80, lat: 23.4721, lng: 90.2814, desc: "Padma Bridge Expressway" },
 ];
 
 const DEFAULT_DEVICE = "ESP32-DVC-45821";
 const DEFAULT_VEHICLE = "VH-10294";
 
 export default function SimulationPanel({ onTelemetryResponse }) {
-  const [speed, setSpeed] = useState(72);
-  const [lat, setLat] = useState(23.4721);
-  const [lng, setLng] = useState(90.2814);
+  const [speed, setSpeed] = useState(75);
+  const [lat, setLat] = useState(24.5822);
+  const [lng, setLng] = useState(90.3958);
   const [deviceId, setDeviceId] = useState(DEFAULT_DEVICE);
   const [vehicleId, setVehicleId] = useState(DEFAULT_VEHICLE);
   const [sending, setSending] = useState(false);
