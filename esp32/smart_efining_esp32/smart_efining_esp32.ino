@@ -31,8 +31,8 @@
 // ─── USER CONFIGURATION ─────────────────────────────────────────────────────
 
 // Wi-Fi credentials — configure for your local network.
-const char* WIFI_SSID     = "Akash";
-const char* WIFI_PASSWORD = "MB NAI GA";
+const char* WIFI_SSID     = "Do IT!";
+const char* WIFI_PASSWORD = "do683times";
 
 // Backend API endpoint:
 // Cloud production URL (Render):
