@@ -6,6 +6,7 @@ import {
   getRecentFines,
   createSSEConnection,
   clearVehicleTrail,
+  getHealthStatus,
 } from "../services/api";
 import LiveMap from "../components/LiveMap";
 import SpeedGauge from "../components/SpeedGauge";
@@ -24,14 +25,39 @@ export default function LiveDashboard() {
   const [recentFines, setRecentFines] = useState([]);
   const [error, setError] = useState(null);
   const [sseConnected, setSseConnected] = useState(false);
+  const [backendAwake, setBackendAwake] = useState(false);
   const sseRef = useRef(null);
+  const sseRetryRef = useRef(null);
 
-  // ── Load speed zones once ──────────────────────────────────────────────
+  // ── Wake up backend on page load (Render free tier sleeps) ─────────────
   useEffect(() => {
+    let cancelled = false;
+    const wakeBackend = async () => {
+      try {
+        await getHealthStatus();
+        if (!cancelled) {
+          setBackendAwake(true);
+          setError(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Backend server is waking up... please wait 30-60 seconds.");
+          // Retry wake-up after 10 seconds
+          setTimeout(wakeBackend, 10000);
+        }
+      }
+    };
+    wakeBackend();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Load speed zones once backend is awake ─────────────────────────────
+  useEffect(() => {
+    if (!backendAwake) return;
     getSpeedZones()
       .then((res) => setSpeedZones(res.data))
       .catch(() => {});
-  }, []);
+  }, [backendAwake]);
 
   // ── Load recent fines periodically ─────────────────────────────────────
   const loadFines = useCallback(() => {
@@ -41,89 +67,144 @@ export default function LiveDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!backendAwake) return;
     loadFines();
     const interval = setInterval(loadFines, 10000);
     return () => clearInterval(interval);
-  }, [loadFines]);
+  }, [loadFines, backendAwake]);
 
-  // ── SSE connection for real-time updates ───────────────────────────────
+  // ── SSE connection with auto-reconnect ─────────────────────────────────
   useEffect(() => {
-    const sse = createSSEConnection();
-    sseRef.current = sse;
+    if (!backendAwake) return;
 
-    sse.addEventListener("open", () => setSseConnected(true));
+    let retryCount = 0;
+    const maxRetryDelay = 30000;
 
-    sse.addEventListener("telemetry", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        // Only update if it's for the currently viewed vehicle or
-        // if we don't have any telemetry yet.
-        if (!vehicleId || data.vehicleId === vehicleId) {
-          setTelemetry(data);
-          setTrail((prev) => {
-            const next = [...prev, { latitude: data.latitude, longitude: data.longitude, effectiveSpeed: data.speed, status: data.status }];
-            return next.slice(-50);
-          });
-        }
-      } catch {}
-    });
+    const connectSSE = () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
 
-    sse.addEventListener("violation", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (!vehicleId || data.vehicleId === vehicleId) {
-          setTelemetry(data);
-          loadFines(); // Refresh fines after a violation
-        }
-      } catch {}
-    });
+      const sse = createSSEConnection();
+      sseRef.current = sse;
 
-    sse.addEventListener("warning", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (!vehicleId || data.vehicleId === vehicleId) {
-          setTelemetry(data);
-        }
-      } catch {}
-    });
+      sse.addEventListener("open", () => {
+        setSseConnected(true);
+        setError(null);
+        retryCount = 0; // Reset retry count on successful connection
+      });
 
-    sse.addEventListener("error", () => setSseConnected(false));
+      sse.addEventListener("telemetry", (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (!vehicleId || data.vehicleId === vehicleId) {
+            setTelemetry(data);
+            setTrail((prev) => {
+              const next = [...prev, { latitude: data.latitude, longitude: data.longitude, effectiveSpeed: data.speed, status: data.status }];
+              return next.slice(-50);
+            });
+          }
+        } catch {}
+      });
+
+      sse.addEventListener("violation", (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (!vehicleId || data.vehicleId === vehicleId) {
+            setTelemetry(data);
+            loadFines();
+          }
+        } catch {}
+      });
+
+      sse.addEventListener("warning", (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (!vehicleId || data.vehicleId === vehicleId) {
+            setTelemetry(data);
+          }
+        } catch {}
+      });
+
+      sse.addEventListener("error", () => {
+        setSseConnected(false);
+        sse.close();
+        sseRef.current = null;
+
+        // Auto-reconnect with exponential backoff
+        retryCount++;
+        const delay = Math.min(1000 * Math.pow(2, retryCount), maxRetryDelay);
+        console.log(`[SSE] Reconnecting in ${delay / 1000}s (attempt ${retryCount})...`);
+        sseRetryRef.current = setTimeout(connectSSE, delay);
+      });
+    };
+
+    connectSSE();
 
     return () => {
-      sse.close();
-      sseRef.current = null;
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+      if (sseRetryRef.current) {
+        clearTimeout(sseRetryRef.current);
+        sseRetryRef.current = null;
+      }
     };
-  }, [vehicleId, loadFines]);
+  }, [vehicleId, loadFines, backendAwake]);
 
-  // ── Load initial vehicle status ────────────────────────────────────────
+  // ── Polling fallback: fetch vehicle status every 5s when SSE is down ───
   useEffect(() => {
-    if (!vehicleId) return;
-    getVehicleStatus(vehicleId)
-      .then((res) => {
-        const d = res.data;
-        if (d.latestTelemetry) {
-          setTelemetry({
-            vehicleId: d.vehicleId,
-            registrationNumber: d.registrationNumber,
-            ownerName: d.ownerName,
-            latitude: d.latestTelemetry.latitude,
-            longitude: d.latestTelemetry.longitude,
-            speed: d.latestTelemetry.speed,
-            allowedSpeed: d.latestTelemetry.allowedSpeed,
-            status: d.currentStatus,
-            zoneName: d.latestTelemetry.zoneName,
-            roadCode: d.latestTelemetry.roadCode,
-            roadType: d.latestTelemetry.roadType,
-            timestamp: d.latestTelemetry.timestamp,
-          });
-        }
-      })
-      .catch((err) => setError(err.message));
+    if (!backendAwake || !vehicleId) return;
+    // Always poll regardless of SSE — ensures data stays fresh
+    const pollStatus = () => {
+      getVehicleStatus(vehicleId)
+        .then((res) => {
+          const d = res.data;
+          if (d.latestTelemetry) {
+            setTelemetry((prev) => {
+              // Only update if this is newer data or no previous data
+              const newTs = new Date(d.latestTelemetry.timestamp).getTime();
+              const prevTs = prev?.timestamp ? new Date(prev.timestamp).getTime() : 0;
+              if (newTs > prevTs || !prev) {
+                return {
+                  vehicleId: d.vehicleId,
+                  registrationNumber: d.registrationNumber,
+                  ownerName: d.ownerName,
+                  deviceId: d.deviceId,
+                  latitude: d.latestTelemetry.latitude,
+                  longitude: d.latestTelemetry.longitude,
+                  speed: d.latestTelemetry.speed,
+                  allowedSpeed: d.latestTelemetry.allowedSpeed,
+                  status: d.currentStatus,
+                  zoneName: d.latestTelemetry.zoneName,
+                  roadCode: d.latestTelemetry.roadCode,
+                  roadType: d.latestTelemetry.roadType,
+                  timestamp: d.latestTelemetry.timestamp,
+                };
+              }
+              return prev;
+            });
+            setError(null);
+          }
+        })
+        .catch(() => {});
+    };
 
+    // Initial load
+    pollStatus();
+    // Poll every 5 seconds
+    const interval = setInterval(pollStatus, 5000);
+    return () => clearInterval(interval);
+  }, [vehicleId, backendAwake]);
+
+  // ── Load trail data ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!backendAwake || !vehicleId) return;
     getVehicleTrail(vehicleId)
       .then((res) => setTrail(res.data))
       .catch(() => {});
-  }, [vehicleId]);
+  }, [vehicleId, backendAwake]);
 
   // Clear stale trail points
   const handleClearTrail = useCallback(async () => {
@@ -137,7 +218,7 @@ export default function LiveDashboard() {
   }, [vehicleId]);
 
   const handleSimResponse = useCallback((res) => {
-    // Update telemetry directly from simulation response as fallback.
+    // Update telemetry directly from simulation response.
     if (res && res.speed != null) {
       setTelemetry((prev) => ({
         ...prev,
@@ -173,8 +254,8 @@ export default function LiveDashboard() {
         {/* Status indicator */}
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-            <span className={`h-2 w-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-            {sseConnected ? "SSE LIVE" : "POLLING"}
+            <span className={`h-2 w-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : backendAwake ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`} />
+            {sseConnected ? "SSE LIVE" : backendAwake ? "POLLING (5s)" : "CONNECTING..."}
           </span>
 
           {/* Vehicle selector */}
@@ -213,6 +294,24 @@ export default function LiveDashboard() {
               <InfoRow label="Owner" value={telemetry?.ownerName || "—"} />
               <InfoRow label="Device" value={telemetry?.deviceId || "—"} />
             </dl>
+          </div>
+
+          {/* GPS Coordinates card */}
+          <div className="glass rounded-xl p-5">
+            <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">
+              📍 GPS Coordinates (Live)
+            </h3>
+            <dl className="space-y-2.5 text-sm">
+              <InfoRow label="Latitude" value={telemetry?.latitude != null ? telemetry.latitude.toFixed(6) : "Waiting..."} />
+              <InfoRow label="Longitude" value={telemetry?.longitude != null ? telemetry.longitude.toFixed(6) : "Waiting..."} />
+              <InfoRow label="Speed" value={`${speed.toFixed(1)} km/h`} />
+              <InfoRow label="Speed Limit" value={`${allowedSpeed} km/h`} />
+            </dl>
+            {telemetry?.timestamp && (
+              <p className="text-[10px] text-gray-500 mt-3 border-t border-white/5 pt-2">
+                Updated: {new Date(telemetry.timestamp).toLocaleString()}
+              </p>
+            )}
           </div>
 
           {/* Speed gauge */}
