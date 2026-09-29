@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { sendSimulatedTelemetry } from "../services/api";
 
 /**
@@ -56,7 +56,7 @@ export default function SimulationPanel({ onTelemetryResponse }) {
   }, []);
 
   // Auto-send effect using interval
-  useState(() => {
+  useEffect(() => {
     if (!autoMode) return;
     const interval = setInterval(() => send(), 3000);
     return () => clearInterval(interval);

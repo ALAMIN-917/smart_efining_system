@@ -136,9 +136,18 @@ export default function LiveDashboard() {
     }
   }, [vehicleId]);
 
-  // Simulation response handler — updates telemetry from simulation
   const handleSimResponse = useCallback((res) => {
-    // SSE will handle the update, but we can also set it directly.
+    // Update telemetry directly from simulation response as fallback.
+    if (res && res.speed != null) {
+      setTelemetry((prev) => ({
+        ...prev,
+        speed: res.speed,
+        allowedSpeed: res.allowedSpeed,
+        status: res.status,
+        roadCode: res.roadCode,
+        zoneName: res.road,
+      }));
+    }
   }, []);
 
   const speed = telemetry?.speed ?? 0;
