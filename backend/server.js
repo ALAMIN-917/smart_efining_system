@@ -96,12 +96,7 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-async function start() {
-  await connectDB();
-  app.listen(PORT, () => console.log(`[server] listening on :${PORT}`));
-}
-
-start().catch((err) => {
-  console.error("[server] failed to start:", err);
-  process.exit(1);
+app.listen(PORT, () => {
+  console.log(`[server] listening on :${PORT}`);
+  connectDB();
 });
