@@ -42,6 +42,8 @@ export const getVehicleTrail = (vehicleId, limit = 50) =>
 export const getSpeedZones = () => request(`/api/speed-zones`);
 export const sendSimulatedTelemetry = (data) =>
   request(`/api/telemetry/simulate`, { method: "POST", body: JSON.stringify(data) });
+export const getLatestTelemetry = (deviceId) =>
+  request(`/api/telemetry/latest/${encodeURIComponent(deviceId)}`);
 
 /**
  * Create an SSE (Server-Sent Events) connection for real-time updates.

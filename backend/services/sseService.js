@@ -46,4 +46,11 @@ function broadcast(eventName, data) {
   }
 }
 
-module.exports = { sseHandler, broadcast };
+/**
+ * Returns the number of currently connected SSE clients.
+ */
+function clientCount() {
+  return clients.size;
+}
+
+module.exports = { sseHandler, broadcast, clientCount };

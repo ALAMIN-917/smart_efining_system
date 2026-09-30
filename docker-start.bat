@@ -5,10 +5,31 @@ echo     Smart E-Fining System - Starting Docker
 echo ===================================================
 echo.
 
+:: Add Docker to PATH if it's in the User AppData folder
+if exist "%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin\docker.exe" (
+    set "PATH=%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin;%PATH%"
+)
+if exist "C:\Program Files\Docker\Docker\resources\bin\docker.exe" (
+    set "PATH=C:\Program Files\Docker\Docker\resources\bin;%PATH%"
+)
+
 where docker >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] Docker is not installed or not in PATH!
     echo Please install Docker Desktop from: https://www.docker.com/products/docker-desktop/
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Check if Docker engine is running
+docker info >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [NOTICE] Docker is installed, but Docker Desktop is NOT running!
+    echo.
+    echo Please open "Docker Desktop" from your Windows Start Menu,
+    echo wait until it shows "Engine running" (green icon),
+    echo and then run this script again!
     echo.
     pause
     exit /b 1

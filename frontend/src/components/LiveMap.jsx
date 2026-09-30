@@ -19,9 +19,11 @@ export default function LiveMap({ telemetry, speedZones, trail, onClearTrail }) 
     const L = window.L;
     if (!L) return;
 
-    // Initial center: Trishal / Dhaka corridor
-    const initialLat = telemetry?.latitude || 24.5822;
-    const initialLng = telemetry?.longitude || 90.3958;
+    // Default map center (Trishal / Dhaka corridor) — NOT GPS data.
+    // The map will pan to the real vehicle position once telemetry arrives.
+    const DEFAULT_MAP_CENTER = [24.58, 90.39];
+    const initialLat = telemetry?.latitude ?? DEFAULT_MAP_CENTER[0];
+    const initialLng = telemetry?.longitude ?? DEFAULT_MAP_CENTER[1];
 
     const map = L.map(mapRef.current, {
       center: [initialLat, initialLng],

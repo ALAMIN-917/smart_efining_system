@@ -7,12 +7,16 @@ const {
   getVehicleStatus,
   getVehicleTrail,
   clearVehicleTrail,
+  getLatestTelemetry,
 } = require("../controllers/telemetryController");
 
 const router = express.Router();
 
 // ESP32 telemetry ingestion — the core endpoint.
 router.post("/telemetry", asyncHandler(ingestTelemetry));
+
+// Latest telemetry for a specific device (used by frontend on page load).
+router.get("/telemetry/latest/:deviceId", asyncHandler(getLatestTelemetry));
 
 // Simulation endpoint (no auth required for demo convenience).
 router.post("/telemetry/simulate", asyncHandler(simulateTelemetry));
@@ -24,3 +28,4 @@ router.get("/vehicles/:vehicleId/trail", asyncHandler(getVehicleTrail));
 router.delete("/vehicles/:vehicleId/trail", asyncHandler(clearVehicleTrail));
 
 module.exports = router;
+

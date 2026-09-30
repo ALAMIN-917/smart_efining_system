@@ -1,5 +1,22 @@
 version: '3.8'
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Smart E-Fining System — Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+#  ESP32 Connectivity:
+#    The backend binds to 0.0.0.0:5000, making it reachable from any device on
+#    your local network (including the ESP32).
+#
+#    In the Arduino sketch, set:
+#      DOCKER_MODE     = true
+#      DOCKER_HOST_IP  = "<your-PC's-WiFi-IP>"   (e.g. 192.168.100.163)
+#      DOCKER_PORT     = 5000
+#
+#    The ESP32 will POST to: http://<your-PC-IP>:5000/api/telemetry
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
 services:
   # 1. MongoDB Database
   mongodb:
@@ -10,6 +27,8 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    networks:
+      - efining_net
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
@@ -18,6 +37,7 @@ services:
       start_period: 10s
 
   # 2. Express Backend API
+  #    Exposed on 0.0.0.0:5000 so the ESP32 can reach it over the LAN.
   backend:
     build:
       context: ./backend
@@ -25,7 +45,7 @@ services:
     container_name: smart_efining_backend
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "0.0.0.0:5000:5000"
     environment:
       - PORT=5000
       - MONGODB_URI=mongodb://mongodb:27017/smart_e_fining
@@ -34,6 +54,8 @@ services:
       - JWT_SECRET=supersecretjwtkey_presentation_demo_2026
       - SEED_ADMIN_USERNAME=superadmin
       - SEED_ADMIN_PASSWORD=ChangeMe123!
+    networks:
+      - efining_net
     depends_on:
       mongodb:
         condition: service_healthy
@@ -47,8 +69,14 @@ services:
     restart: unless-stopped
     ports:
       - "5173:5173"
+    networks:
+      - efining_net
     depends_on:
       - backend
+
+networks:
+  efining_net:
+    driver: bridge
 
 volumes:
   mongo_data:

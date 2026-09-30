@@ -11,7 +11,7 @@ import {
 import LiveMap from "../components/LiveMap";
 import SpeedGauge from "../components/SpeedGauge";
 import ViolationAlert from "../components/ViolationAlert";
-import SimulationPanel from "../components/SimulationPanel";
+// import LiveTelemetryPanel from "../components/LiveTelemetryPanel"; // Temporarily removed as requested
 import { StatusBadge } from "../components/FineCard";
 import { Link } from "react-router-dom";
 
@@ -97,6 +97,7 @@ export default function LiveDashboard() {
       sse.addEventListener("telemetry", (e) => {
         try {
           const data = JSON.parse(e.data);
+          console.log("[SSE] Telemetry received:", data);
           if (!vehicleId || data.vehicleId === vehicleId) {
             setTelemetry(data);
             setTrail((prev) => {
@@ -153,10 +154,9 @@ export default function LiveDashboard() {
     };
   }, [vehicleId, loadFines, backendAwake]);
 
-  // ── Polling fallback: fetch vehicle status every 5s when SSE is down ───
+  // ── Polling fallback: fetch vehicle status every 5s ────────────────────
   useEffect(() => {
     if (!backendAwake || !vehicleId) return;
-    // Always poll regardless of SSE — ensures data stays fresh
     const pollStatus = () => {
       getVehicleStatus(vehicleId)
         .then((res) => {
@@ -175,11 +175,13 @@ export default function LiveDashboard() {
                   latitude: d.latestTelemetry.latitude,
                   longitude: d.latestTelemetry.longitude,
                   speed: d.latestTelemetry.speed,
+                  gpsSpeed: d.latestTelemetry.gpsSpeed,
                   allowedSpeed: d.latestTelemetry.allowedSpeed,
                   status: d.currentStatus,
                   zoneName: d.latestTelemetry.zoneName,
                   roadCode: d.latestTelemetry.roadCode,
                   roadType: d.latestTelemetry.roadType,
+                  satellites: d.latestTelemetry.satellites,
                   timestamp: d.latestTelemetry.timestamp,
                 };
               }
@@ -216,20 +218,6 @@ export default function LiveDashboard() {
       console.error("Failed to clear trail:", err);
     }
   }, [vehicleId]);
-
-  const handleSimResponse = useCallback((res) => {
-    // Update telemetry directly from simulation response.
-    if (res && res.speed != null) {
-      setTelemetry((prev) => ({
-        ...prev,
-        speed: res.speed,
-        allowedSpeed: res.allowedSpeed,
-        status: res.status,
-        roadCode: res.roadCode,
-        zoneName: res.road,
-      }));
-    }
-  }, []);
 
   const speed = telemetry?.speed ?? 0;
   const allowedSpeed = telemetry?.allowedSpeed ?? 60;
@@ -302,10 +290,11 @@ export default function LiveDashboard() {
               📍 GPS Coordinates (Live)
             </h3>
             <dl className="space-y-2.5 text-sm">
-              <InfoRow label="Latitude" value={telemetry?.latitude != null ? telemetry.latitude.toFixed(6) : "Waiting..."} />
-              <InfoRow label="Longitude" value={telemetry?.longitude != null ? telemetry.longitude.toFixed(6) : "Waiting..."} />
+              <InfoRow label="Latitude" value={telemetry?.latitude != null ? telemetry.latitude.toFixed(6) : "Waiting for GPS..."} />
+              <InfoRow label="Longitude" value={telemetry?.longitude != null ? telemetry.longitude.toFixed(6) : "Waiting for GPS..."} />
               <InfoRow label="Speed" value={`${speed.toFixed(1)} km/h`} />
               <InfoRow label="Speed Limit" value={`${allowedSpeed} km/h`} />
+              <InfoRow label="Satellites" value={telemetry?.satellites != null ? telemetry.satellites : "—"} />
             </dl>
             {telemetry?.timestamp && (
               <p className="text-[10px] text-gray-500 mt-3 border-t border-white/5 pt-2">
@@ -373,8 +362,8 @@ export default function LiveDashboard() {
             />
           </div>
 
-          {/* Simulation Panel */}
-          <SimulationPanel onTelemetryResponse={handleSimResponse} />
+          {/* Simulation / Live Telemetry Panel temporarily removed */}
+          {/* <LiveTelemetryPanel telemetry={telemetry} /> */}
 
           {/* Recent fines */}
           {recentFines.length > 0 && (

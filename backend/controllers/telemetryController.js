@@ -20,7 +20,7 @@ const { ApiError } = require("../middleware/errorHandler");
 const gps = require("../services/gpsService");
 const speedZoneSvc = require("../services/speedZoneService");
 const violationSvc = require("../services/violationService");
-const { broadcast } = require("../services/sseService");
+const { broadcast, clientCount: clients_count } = require("../services/sseService");
 
 // ── In-memory store for previous readings (for calculated speed) ────────
 const previousReadings = new Map(); // deviceId → { latitude, longitude, timestamp }
@@ -160,6 +160,8 @@ const ingestTelemetry = async (req, res) => {
     timestamp: now,
   });
 
+  console.log(`[TELEMETRY] MongoDB latest state updated (id: ${telemetryDoc._id})`);
+
   // ── 7. Broadcast via SSE ──────────────────────────────────────────────
   const ssePayload = {
     deviceId,
@@ -181,6 +183,7 @@ const ingestTelemetry = async (req, res) => {
   };
 
   broadcast("telemetry", ssePayload);
+  console.log(`[TELEMETRY] SSE broadcast sent (${clients_count()} client(s))`);
 
   if (status === "WARNING" || status === "OVERSPEED") {
     broadcast("warning", ssePayload);
@@ -291,6 +294,7 @@ const getVehicleStatus = async (req, res) => {
             latitude: latest.latitude,
             longitude: latest.longitude,
             speed: latest.effectiveSpeed,
+            gpsSpeed: latest.gpsSpeed,
             allowedSpeed: latest.allowedSpeed,
             zoneName: latest.speedZoneId,
             timestamp: latest.timestamp,
@@ -334,6 +338,43 @@ const clearVehicleTrail = async (req, res) => {
   res.json({ success: true, message: `Trail cleared for vehicle ${vehicleId}` });
 };
 
+/**
+ * GET /api/telemetry/latest/:deviceId
+ *
+ * Returns the most recent telemetry reading for a specific device.
+ * Used by the frontend to get the current state on page load.
+ */
+const getLatestTelemetry = async (req, res) => {
+  const { deviceId } = req.params;
+  const latest = await Telemetry.findOne({ deviceId })
+    .sort({ timestamp: -1 })
+    .lean();
+
+  if (!latest) {
+    return res.status(404).json({
+      success: false,
+      message: `No telemetry data found for device ${deviceId}.`,
+    });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      deviceId: latest.deviceId,
+      vehicleId: latest.vehicleId,
+      latitude: latest.latitude,
+      longitude: latest.longitude,
+      gpsSpeed: latest.gpsSpeed,
+      effectiveSpeed: latest.effectiveSpeed,
+      allowedSpeed: latest.allowedSpeed,
+      satellites: latest.satellites,
+      status: latest.status,
+      timestamp: latest.timestamp,
+      receivedAt: latest.createdAt,
+    },
+  });
+};
+
 module.exports = {
   ingestTelemetry,
   simulateTelemetry,
@@ -341,4 +382,5 @@ module.exports = {
   getVehicleStatus,
   getVehicleTrail,
   clearVehicleTrail,
+  getLatestTelemetry,
 };

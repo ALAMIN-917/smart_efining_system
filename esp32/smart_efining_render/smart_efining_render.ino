@@ -29,8 +29,8 @@
 // -----------------------------------------------------------------------------
 // 1. CONFIGURATION (Wi-Fi, Render URL, Device ID)
 // -----------------------------------------------------------------------------
-const char* WIFI_SSID     = "Software Lab1";
-const char* WIFI_PASSWORD = "Csesoft2006";
+const char* WIFI_SSID     = "Do IT!";
+const char* WIFI_PASSWORD = "do683times";
 
 // Render Cloud Endpoint
 const char* RENDER_URL    = "https://smart-efining-system-1.onrender.com/api/telemetry";
